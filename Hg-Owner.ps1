@@ -1,9 +1,9 @@
-function Hg-Owner([Parameter(ValueFromPipeline=$true)][string[]]$filename) {
+function Get-HgOwner([Parameter(ValueFromPipeline=$true)][string[]]$Path) {
 
     Process {
         hg log `
             --no-merges `
-            --include $filename `
+            --include $Path `
             --template '{author}\n' `
             | group `
             | sort Count -Descending `
