@@ -5,6 +5,7 @@ function Get-HgBranchOwner([Parameter(Mandatory=$true, ValueFromPipeline=$true)]
             --no-merges `
             --branch $Branch `
             --template '{author}\n' `
+            2> $null `
             | group `
             | sort Count -Descending `
             | %{$_.Name} `

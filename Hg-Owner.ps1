@@ -5,6 +5,7 @@ function Get-HgOwner([Parameter(Mandatory=$true, ValueFromPipeline=$true)] [stri
             --no-merges `
             --include $Path `
             --template '{author}\n' `
+            2> $null `
             | group `
             | sort Count -Descending `
             | %{$_.Name} `
