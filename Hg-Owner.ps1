@@ -12,3 +12,5 @@ function Get-HgOwner([Parameter(ValueFromPipeline=$true)][string[]]$Path) {
     }
 
 }
+
+Set-Alias hgowner Get-HgOwner
