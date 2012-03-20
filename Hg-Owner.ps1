@@ -1,4 +1,4 @@
-function Get-HgOwner([Parameter(ValueFromPipeline=$true)][string[]]$Path) {
+function Get-HgOwner([Parameter(Mandatory=$true, ValueFromPipeline=$true)] [string[]] $Path) {
 
     Process {
         hg log `
