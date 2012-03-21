@@ -1,12 +1,12 @@
 function Write-LastHgCommitDiff {
 
-    $lastChangesetID = hg log `
+    $lastChangesetId = hg log `
         --limit 1 `
         --template '{node}' `
         2> $null `
 
     hg diff `
-        --change $lastChangesetID `
+        --change $lastChangesetId `
 
 }
 
