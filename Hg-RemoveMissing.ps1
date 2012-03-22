@@ -2,7 +2,6 @@ function Remove-MissingHgFiles {
 
     hg remove `
         --after `
-        --include * `
 
 }
 
