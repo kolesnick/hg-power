@@ -1,4 +1,8 @@
-function Get-HgOwner([Parameter(Mandatory=$true, ValueFromPipeline=$true)] [string[]] $Path) {
+Add-Type -TypeDefinition 'public enum HgOwnerAnalysisData { Commits, Content }'
+
+function Get-HgOwner(
+    [Parameter(Mandatory=$true, ValueFromPipeline=$true)] [string[]] $Path,
+    [HgOwnerAnalysisData] $Analyse = [HgOwnerAnalysisData]::Content) {
 
     Begin {
 
@@ -29,7 +33,10 @@ function Get-HgOwner([Parameter(Mandatory=$true, ValueFromPipeline=$true)] [stri
     }
 
     Process {
-        DetermineHgOwnerUsingLog $Path
+        switch ($Analyse) {
+            Commits { DetermineHgOwnerUsingLog $Path }
+            Content { DetermineHgOwnerUsingAnnotate $Path }
+        }
     }
 
 }
