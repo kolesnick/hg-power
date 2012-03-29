@@ -24,6 +24,7 @@ function Write-HgDiff([Parameter(Mandatory=$true)] [int] $Index, [string] $Branc
     }
 
     hg diff `
+        --git `
         --change $changesetId `
 
 }
