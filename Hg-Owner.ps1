@@ -23,11 +23,11 @@ function Get-HgOwner(
                 --user -v `
                 $Path `
                 2> $null `
-                | %{$_.split(':')[0].trim()} `
+                | %{$_.Split(':')[0].trim()} `
                 | group `
                 | sort Count -Descending `
                 | %{$_.Name} `
-                | select -First 1        
+                | select -First 1 `
         }
 
     }
