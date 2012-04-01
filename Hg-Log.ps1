@@ -42,7 +42,7 @@ function Write-HgLog {
 
             }
 
-            return New-Object PSObject -Property @{ Revision = $revision; ParentA = $parentA; ParentB = $parentB }
+            return New-Object PSObject -Property @{ Revision = $revision; ParentRevisionA = $parentA; ParentRevisionB = $parentB }
 
         }
 
