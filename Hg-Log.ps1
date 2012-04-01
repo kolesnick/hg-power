@@ -48,12 +48,25 @@ function Write-HgLog {
 
     }
 
-    function GetCommits([int] $Count) {
-        return hg log `
-            --limit $Count `
-            --template '{rev}:{node|short} <- {parents}\n' `
-            2> $null `
-            | ParseCommitInfo `
+    function GetCommits([System.Nullable``1[[System.Int32]]] $Count) {
+
+        if ($Count -ne $null) {
+
+            return hg log `
+                --limit $Count `
+                --template '{rev}:{node|short} <- {parents}\n' `
+                2> $null `
+                | ParseCommitInfo `
+
+        } else {
+
+            return hg log `
+                --template '{rev}:{node|short} <- {parents}\n' `
+                2> $null `
+                | ParseCommitInfo `
+
+        }
+
     }
 
     GetCommits(32)
