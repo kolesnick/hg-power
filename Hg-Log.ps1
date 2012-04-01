@@ -48,11 +48,15 @@ function Write-HgLog {
 
     }
 
-    hg log `
-        --limit 32 `
-        --template '{rev}:{node|short} <- {parents}\n' `
-        2> $null `
-        | ParseCommitInfo `
+    function GetCommits([int] $Count) {
+        return hg log `
+            --limit $Count `
+            --template '{rev}:{node|short} <- {parents}\n' `
+            2> $null `
+            | ParseCommitInfo `
+    }
+
+    GetCommits(32)
 
 }
 
