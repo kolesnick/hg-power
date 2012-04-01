@@ -1,54 +1,54 @@
 function Write-HgLog {
 
-    function ParseRevisionNumber([string] $RevisionNumberChangesetIdPair) {
-        return [int] $RevisionNumberChangesetIdPair.Split(':')[0]
-    }
+    function GetCommits([System.Nullable``1[[System.Int32]]] $Count) {
 
-    function ParseCommitInfo([Parameter(ValueFromPipeline=$true)] [string] $LogEntry) {
+        function ParseRevisionNumber([string] $RevisionNumberChangesetIdPair) {
+            return [int] $RevisionNumberChangesetIdPair.Split(':')[0]
+        }
 
-        Process {
+        function ParseCommitInfo([Parameter(ValueFromPipeline=$true)] [string] $LogEntry) {
 
-            $logEntryParts = $logEntry.Split([string[]] ' <- ', [StringSplitOptions]::None)
+            Process {
 
-            $revision = ParseRevisionNumber($logEntryParts[0])
+                $logEntryParts = $logEntry.Split([string[]] ' <- ', [StringSplitOptions]::None)
 
-            $parents = $logEntryParts[1].Split(' ', [StringSplitOptions]::RemoveEmptyEntries)
+                $revision = ParseRevisionNumber($logEntryParts[0])
 
-            if ($revision -eq 0) {
+                $parents = $logEntryParts[1].Split(' ', [StringSplitOptions]::RemoveEmptyEntries)
 
-                # initial commit: has no parents
-                $parentA = $null
-                $parentB = $null
+                if ($revision -eq 0) {
 
-            } else {
+                    # initial commit: has no parents
+                    $parentA = $null
+                    $parentB = $null
 
-                switch ($parents.Count) {
-                    0 {
-                        # trivial commit: previous revision is also parent one
-                        $parentA = $revision - 1
-                        $parentB = $null
+                } else {
+
+                    switch ($parents.Count) {
+                        0 {
+                            # trivial commit: previous revision is also parent one
+                            $parentA = $revision - 1
+                            $parentB = $null
+                        }
+                        1 {
+                            # parent is only one and it is explicitly specified
+                            $parentA = ParseRevisionNumber($parents[0])
+                            $parentB = $null
+                        }
+                        2 {
+                            # two parents, both explicitly specified
+                            $parentA = ParseRevisionNumber($parents[0])
+                            $parentB = ParseRevisionNumber($parents[1])
+                        }
                     }
-                    1 {
-                        # parent is only one and it is explicitly specified
-                        $parentA = ParseRevisionNumber($parents[0])
-                        $parentB = $null
-                    }
-                    2 {
-                        # two parents, both explicitly specified
-                        $parentA = ParseRevisionNumber($parents[0])
-                        $parentB = ParseRevisionNumber($parents[1])
-                    }
+
                 }
+
+                return New-Object PSObject -Property @{ Revision = $revision; ParentRevisionA = $parentA; ParentRevisionB = $parentB }
 
             }
 
-            return New-Object PSObject -Property @{ Revision = $revision; ParentRevisionA = $parentA; ParentRevisionB = $parentB }
-
         }
-
-    }
-
-    function GetCommits([System.Nullable``1[[System.Int32]]] $Count) {
 
         if ($Count -ne $null) {
 
