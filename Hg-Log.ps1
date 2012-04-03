@@ -1,5 +1,7 @@
 function Write-HgLog {
 
+    Set-Variable CanvasEmptyCharacter -Value '·' -Option Constant
+
     function GetCommits([System.Nullable``1[[System.Int32]]] $Count) {
 
         function ParseRevisionNumber([string] $RevisionNumberChangesetIdPair) {
@@ -69,7 +71,35 @@ function Write-HgLog {
 
     }
 
+    function CreateEmptyCanvas([int] $Width, [int] $Height) {
+        return [char[][]] (@(New-Object string -ArgumentList $CanvasEmptyCharacter, $Width) * $Height)
+    }
+
+    function CharArrayToString([Parameter(ValueFromPipeline=$true)] [char[]] $CharArray) {
+        Process {
+            return [string]::Concat(($CharArray | %{ [string] $_ }))
+        }
+    }
+
+    function DrawLine([char[][]] $Canvas, [double] $Start, [double] $Finish) {
+
+        $firstRow = 0
+        $lastRow = $Canvas.Count - 1
+
+        $Canvas[$firstRow][$Start - 1] = '|'
+        $Canvas[$lastRow][$Finish - 1] = '|'
+
+        return $Canvas
+
+    }
+
+    # test code below (should be replaced with real output)
+
     GetCommits 32
+
+    $canvas = CreateEmptyCanvas -Width 20 -Height 5
+    $canvas = DrawLine $canvas -Start 4 -Finish 8
+    $canvas | CharArrayToString | Write-Host 
 
 }
 
