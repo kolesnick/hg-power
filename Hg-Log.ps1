@@ -1,8 +1,8 @@
 function Write-HgLog {
 
-    Set-Variable CanvasEmptyCharacter -Value '·' -Option Constant
+    Set-Variable CanvasEmptyCharacter -Value ([char] '·') -Option Constant
 
-    function GetCommits([System.Nullable``1[[System.Int32]]] $Count) {
+    function GetCommits([Nullable``1[[Int32]]] $Count) {
 
         function ParseRevisionNumber([string] $RevisionNumberChangesetIdPair) {
             return [int] $RevisionNumberChangesetIdPair.Split(':')[0]
@@ -81,13 +81,50 @@ function Write-HgLog {
         }
     }
 
+    function CalculateLineCellForRow([double] $StartCell, [double] $FinishCell, [int] $RowCount, [int] $Row) {
+        return [Math]::Round(($StartCell * ($RowCount - 1 - $Row) + $FinishCell * $Row) / ($RowCount - 1))
+    }
+
     function DrawLine([char[][]] $Canvas, [double] $Start, [double] $Finish) {
 
-        $firstRow = 0
-        $lastRow = $Canvas.Count - 1
+        # adopting coords to array indexes which start from zero
+        $Start--
+        $Finish--
 
-        $Canvas[$firstRow][$Start - 1] = '|'
-        $Canvas[$lastRow][$Finish - 1] = '|'
+        for ($row = 0; $row -lt $Canvas.Count; $row++) {
+
+            $cell = CalculateLineCellForRow $Start $Finish $Canvas.Count $row
+
+            $isLastRow = $row -eq $Canvas.Count - 1
+
+            if ($isLastRow) {
+
+                $char = '|'
+
+            } else {
+
+                $nextCell = CalculateLineCellForRow $Start $Finish $Canvas.Count ($row + 1)
+
+                if ($cell -lt $nextCell) {
+                    $char = '\'
+                }
+                if ($cell -gt $nextCell) {
+                    $char = '/'
+                }
+                if ($cell -eq $nextCell) {
+                    $char = '|'
+                }
+
+            }
+
+            $Canvas[$row][$cell] = $char
+
+            if (-not $isLastRow) {
+                for ($connectingCell = [Math]::Min($cell, $nextCell) + 1; $connectingCell -lt [Math]::Max($cell, $nextCell); $connectingCell++) {
+                    $Canvas[$row][$connectingCell] = '_'
+                }
+            }
+        }
 
         return $Canvas
 
@@ -98,7 +135,7 @@ function Write-HgLog {
     GetCommits 32
 
     $canvas = CreateEmptyCanvas -Width 20 -Height 5
-    $canvas = DrawLine $canvas -Start 4 -Finish 8
+    $canvas = DrawLine $canvas -Start 4 -Finish 15
     $canvas | CharArrayToString | Write-Host 
 
 }
