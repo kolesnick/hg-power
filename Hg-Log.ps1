@@ -12,7 +12,7 @@ function Write-HgLog {
 
                 $logEntryParts = $logEntry.Split([string[]] ' <- ', [StringSplitOptions]::None)
 
-                $revision = ParseRevisionNumber($logEntryParts[0])
+                $revision = ParseRevisionNumber $logEntryParts[0]
 
                 $parents = $logEntryParts[1].Split(' ', [StringSplitOptions]::RemoveEmptyEntries)
 
@@ -32,13 +32,13 @@ function Write-HgLog {
                         }
                         1 {
                             # parent is only one and it is explicitly specified
-                            $parentA = ParseRevisionNumber($parents[0])
+                            $parentA = ParseRevisionNumber $parents[0]
                             $parentB = $null
                         }
                         2 {
                             # two parents, both explicitly specified
-                            $parentA = ParseRevisionNumber($parents[0])
-                            $parentB = ParseRevisionNumber($parents[1])
+                            $parentA = ParseRevisionNumber $parents[0]
+                            $parentB = ParseRevisionNumber $parents[1]
                         }
                     }
 
@@ -69,7 +69,7 @@ function Write-HgLog {
 
     }
 
-    GetCommits(32)
+    GetCommits 32
 
 }
 
