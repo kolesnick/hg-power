@@ -10,7 +10,7 @@ function Write-HgLog {
 
             Process {
 
-                $logEntryParts = $logEntry.Split([string[]] ' <- ', [StringSplitOptions]::None)
+                $logEntryParts = $LogEntry.Split([string[]] ' <- ', [StringSplitOptions]::None)
 
                 $revision = ParseRevisionNumber $logEntryParts[0]
 
