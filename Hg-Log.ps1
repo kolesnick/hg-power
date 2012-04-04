@@ -130,13 +130,23 @@ function Write-HgLog {
 
     }
 
+    function RenderPath([PSObject[]] $TopEntries, [PSObject[]] $BottomEntries, [int] $Width, [int] $MinHeight) {
+        $canvas = CreateEmptyCanvas -Width $Width -Height $MinHeight
+        $canvas = DrawLine $canvas -Start $TopEntries[0].Position -Finish $BottomEntries[0].Position
+        return $canvas
+    }
+
     # test code below (should be replaced with real output)
 
     GetCommits 32
 
-    $canvas = CreateEmptyCanvas -Width 20 -Height 5
-    $canvas = DrawLine $canvas -Start 4 -Finish 15
-    $canvas | CharArrayToString | Write-Host 
+    RenderPath `
+        -TopEntries @(New-Object PSObject -Property @{ Position = 4 }) `
+        -BottomEntries @(New-Object PSObject -Property @{ Position = 15 }) `
+        -Width 20 `
+        -MinHeight 5 `
+        | CharArrayToString `
+        | Write-Host `
 
 }
 
