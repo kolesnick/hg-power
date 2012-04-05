@@ -2,7 +2,7 @@ function Write-HgLog {
 
     Set-Variable CanvasEmptyCharacter -Value ([char] '·') -Option Constant
 
-    function GetCommits([Nullable``1[[Int32]]] $Count) {
+    function GetCommits([System.Nullable``1[[System.Int32]]] $Count) {
 
         function ParseRevisionNumber([string] $RevisionNumberChangesetIdPair) {
             return [int] $RevisionNumberChangesetIdPair.Split(':')[0]
