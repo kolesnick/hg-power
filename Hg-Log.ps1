@@ -131,9 +131,23 @@ function Write-HgLog {
     }
 
     function RenderPath([PSObject[]] $TopEntries, [PSObject[]] $BottomEntries, [int] $Width, [int] $MinHeight) {
+
         $canvas = CreateEmptyCanvas -Width $Width -Height $MinHeight
-        $canvas = DrawLine $canvas -Start $TopEntries[0].Position -Finish $BottomEntries[0].Position
+
+        foreach ($topEntry in $TopEntries) {
+
+            $bottomEntry = $BottomEntries | where { $_.Id -eq $topEntry.Id }
+
+            if ($bottomEntry -ne $null) {
+                $canvas = DrawLine $canvas -Start $topEntry.Position -Finish $bottomEntry.Position
+            } else {
+                $canvas = DrawHead $canvas $topEntry.Position # TODO
+            }
+
+        }
+
         return $canvas
+
     }
 
     # test code below (should be replaced with real output)
@@ -141,8 +155,17 @@ function Write-HgLog {
     GetCommits 32
 
     RenderPath `
-        -TopEntries @(New-Object PSObject -Property @{ Position = 4 }) `
-        -BottomEntries @(New-Object PSObject -Property @{ Position = 15 }) `
+        -TopEntries @( `
+            New-Object PSObject -Property @{ Id = 'A'; Position = 2 }; `
+            New-Object PSObject -Property @{ Id = 'A'; Position = 9 }; `
+            New-Object PSObject -Property @{ Id = 'B'; Position = 10.5 }; `
+            New-Object PSObject -Property @{ Id = 'C'; Position = 19 }; `
+        ) `
+        -BottomEntries @( `
+            New-Object PSObject -Property @{ Id = 'A'; Position = 6 }; `
+            New-Object PSObject -Property @{ Id = 'B'; Position = 19 }; `
+            New-Object PSObject -Property @{ Id = 'C'; Position = 10.5 }; `
+        ) `
         -Width 20 `
         -MinHeight 5 `
         | CharArrayToString `
