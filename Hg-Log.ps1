@@ -85,6 +85,34 @@ function Write-HgLog {
         return [Math]::Round(($StartCell * ($RowCount - 1 - $Row) + $FinishCell * $Row) / ($RowCount - 1))
     }
 
+    function DrawPixel([char[][]] $Canvas, [int] $Row, [int] $Cell, [char] $Character) {
+
+        $currentCharacter = $Canvas[$Row][$Cell]
+
+        $isOverlap = $currentCharacter -ne $CanvasEmptyCharacter
+
+        if (-not $isOverlap) {
+
+            $Canvas[$Row][$Cell] = $Character
+
+        } else {
+
+            $isIdenticOverlap = $Character -eq $currentCharacter
+            $isXCrossOverlap = ($Character -eq '\' -and $currentCharacter -eq '/') -or ($Character -eq '/' -and $currentCharacter -eq '\')
+
+            if ($isXCrossOverlap) {
+                $Canvas[$Row][$Cell] = 'X'
+            } elseif ($isIdenticOverlap) {
+                # character is already the same
+            } else {
+                $Canvas[$Row][$Cell] = '#'
+            }
+
+        }
+
+        return $Canvas
+    }
+
     function DrawLine([char[][]] $Canvas, [double] $Start, [double] $Finish) {
 
         # adopting coords to array indexes which start from zero
@@ -107,21 +135,19 @@ function Write-HgLog {
 
                 if ($cell -lt $nextCell) {
                     $char = '\'
-                }
-                if ($cell -gt $nextCell) {
+                } elseif ($cell -gt $nextCell) {
                     $char = '/'
-                }
-                if ($cell -eq $nextCell) {
+                } elseif ($cell -eq $nextCell) {
                     $char = '|'
                 }
 
             }
 
-            $Canvas[$row][$cell] = $char
+            $Canvas = DrawPixel $Canvas $row $cell $char
 
             if (-not $isLastRow) {
                 for ($connectingCell = [Math]::Min($cell, $nextCell) + 1; $connectingCell -lt [Math]::Max($cell, $nextCell); $connectingCell++) {
-                    $Canvas[$row][$connectingCell] = '_'
+                    $Canvas = DrawPixel $Canvas $row $connectingCell '_'
                 }
             }
         }
