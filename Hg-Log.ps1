@@ -171,31 +171,29 @@ function Write-HgLog {
                 $canvas = DrawLine $canvas -Start $topEntry.Position -Finish $bottomEntry.Position -ShouldStartWithHead $topEntry.IsHead
             }
 
-            # TODO foreachelse $canvas = DrawHead $canvas $topEntry.Position
-
         }
 
         return $canvas
 
     }
 
-    function GetBottomEntriesForCurrentIteration([PSObject] $Commit, [PSObject[]] $TopEntries) {
+    function GetBottomEntriesForCurrentIteration([PSObject] $NextCommit, [PSObject[]] $TopEntries) {
 
         $bottomEntries = @()
         $wasCommitAddedToEntries = $false
 
         foreach ($topEntry in $TopEntries) {
 
-            $shouldTopEntryPointToCommit = $topEntry.Id -eq $Commit.Revision
+            $isTopEntryConnectedToCommit = $topEntry.Id -eq $NextCommit.Revision
 
-            if (-not $shouldTopEntryPointToCommit) {
+            if (-not $isTopEntryConnectedToCommit) {
 
                 $bottomEntries += New-Object PSObject -Property @{ Id = $topEntry.Id; Position = $null; IsHead = $false }
                 
             } else {
 
                 if (-not $wasCommitAddedToEntries) {
-                    $bottomEntries += New-Object PSObject -Property @{ Id = $Commit.Revision; Position = $null; IsHead = $false }
+                    $bottomEntries += New-Object PSObject -Property @{ Id = $NextCommit.Revision; Position = $null; IsHead = $false }
                     $wasCommitAddedToEntries = $true
                 }
 
@@ -204,7 +202,7 @@ function Write-HgLog {
         }
 
         if (-not $wasCommitAddedToEntries) {
-            $bottomEntries += New-Object PSObject -Property @{ Id = $Commit.Revision; Position = $null; IsHead = $false }
+            $bottomEntries += New-Object PSObject -Property @{ Id = $NextCommit.Revision; Position = $null; IsHead = $false }
         }
 
         for ([int] $bottomEntryIndex = 0; $bottomEntryIndex -lt $bottomEntries.Count; $bottomEntryIndex++) {
@@ -215,13 +213,13 @@ function Write-HgLog {
 
     }
 
-    function GetTopEntriesForNextIteration([PSObject] $Commit, [PSObject[]] $BottomEntries) {
+    function GetTopEntriesForCurrentIteration([PSObject] $CurrentCommit, [PSObject[]] $PreviousBottomEntries) {
 
         $nextTopEntries = @()
 
-        foreach ($bottomEntry in $BottomEntries) {
+        foreach ($bottomEntry in $PreviousBottomEntries) {
     
-            $isCommitEntry = $bottomEntry.Id -eq $Commit.Revision
+            $isCommitEntry = $bottomEntry.Id -eq $CurrentCommit.Revision
 
             if (-not $isCommitEntry) {
 
@@ -229,12 +227,12 @@ function Write-HgLog {
 
             } else {
 
-                if ($Commit.ParentRevisionA -ne $null) {
-                    $nextTopEntries += New-Object PSObject -Property @{ Id = $Commit.ParentRevisionA; Position = $bottomEntry.Position; IsHead = $true }
+                if ($CurrentCommit.ParentRevisionA -ne $null) {
+                    $nextTopEntries += New-Object PSObject -Property @{ Id = $CurrentCommit.ParentRevisionA; Position = $bottomEntry.Position; IsHead = $true }
                 }
 
-                if ($Commit.ParentRevisionB -ne $null) {
-                    $nextTopEntries += New-Object PSObject -Property @{ Id = $Commit.ParentRevisionB; Position = $bottomEntry.Position; IsHead = $true }
+                if ($CurrentCommit.ParentRevisionB -ne $null) {
+                    $nextTopEntries += New-Object PSObject -Property @{ Id = $CurrentCommit.ParentRevisionB; Position = $bottomEntry.Position; IsHead = $true }
                 }
 
             }
@@ -248,10 +246,12 @@ function Write-HgLog {
     function WriteCommitsDag([PSObject[]] $Commits) {
 
         $topEntries = @()
+        $bottomEntries = GetBottomEntriesForCurrentIteration $Commits[0] $topEntries
 
-        foreach ($commit in $Commits) {
+        for ([int] $commitIndex = 0; $commitIndex -lt $Commits.Count; $commitIndex++) {
 
-            $bottomEntries = GetBottomEntriesForCurrentIteration $commit $topEntries
+            $topEntries = GetTopEntriesForCurrentIteration -CurrentCommit $Commits[$commitIndex] -PreviousBottomEntries $bottomEntries
+            $bottomEntries = GetBottomEntriesForCurrentIteration -NextCommit $Commits[$commitIndex+1] -TopEntries $topEntries
 
             RenderPath `
                 -TopEntries $topEntries `
@@ -260,8 +260,6 @@ function Write-HgLog {
                 -MinHeight 5 `
                 | CharArrayToString `
                 | Write-Host `
-
-            $topEntries = GetTopEntriesForNextIteration $commit $bottomEntries
 
         }
 
