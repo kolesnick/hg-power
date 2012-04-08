@@ -177,6 +177,36 @@ function Write-HgLog {
 
     }
 
+    function GetTopEntriesForCurrentIteration([PSObject] $CurrentCommit, [PSObject[]] $PreviousBottomEntries) {
+
+        $nextTopEntries = @()
+
+        foreach ($bottomEntry in $PreviousBottomEntries) {
+
+            $isCommitEntry = $bottomEntry.Id -eq $CurrentCommit.Revision
+
+            if (-not $isCommitEntry) {
+
+                $nextTopEntries += New-Object PSObject -Property @{ Id = $bottomEntry.Id; Position = $bottomEntry.Position; IsHead = $false }
+
+            } else {
+
+                if ($CurrentCommit.ParentRevisionA -ne $null) {
+                    $nextTopEntries += New-Object PSObject -Property @{ Id = $CurrentCommit.ParentRevisionA; Position = $bottomEntry.Position; IsHead = $true }
+                }
+
+                if ($CurrentCommit.ParentRevisionB -ne $null) {
+                    $nextTopEntries += New-Object PSObject -Property @{ Id = $CurrentCommit.ParentRevisionB; Position = $bottomEntry.Position; IsHead = $true }
+                }
+
+            }
+
+        }
+
+        return $nextTopEntries
+
+    }
+
     function GetBottomEntriesForCurrentIteration([PSObject] $NextCommit, [PSObject[]] $TopEntries) {
 
         $bottomEntries = @()
@@ -210,36 +240,6 @@ function Write-HgLog {
         }
 
         return $bottomEntries
-
-    }
-
-    function GetTopEntriesForCurrentIteration([PSObject] $CurrentCommit, [PSObject[]] $PreviousBottomEntries) {
-
-        $nextTopEntries = @()
-
-        foreach ($bottomEntry in $PreviousBottomEntries) {
-    
-            $isCommitEntry = $bottomEntry.Id -eq $CurrentCommit.Revision
-
-            if (-not $isCommitEntry) {
-
-                $nextTopEntries += New-Object PSObject -Property @{ Id = $bottomEntry.Id; Position = $bottomEntry.Position; IsHead = $false }
-
-            } else {
-
-                if ($CurrentCommit.ParentRevisionA -ne $null) {
-                    $nextTopEntries += New-Object PSObject -Property @{ Id = $CurrentCommit.ParentRevisionA; Position = $bottomEntry.Position; IsHead = $true }
-                }
-
-                if ($CurrentCommit.ParentRevisionB -ne $null) {
-                    $nextTopEntries += New-Object PSObject -Property @{ Id = $CurrentCommit.ParentRevisionB; Position = $bottomEntry.Position; IsHead = $true }
-                }
-
-            }
-
-        }
-        
-        return $nextTopEntries
 
     }
 
