@@ -1,9 +1,11 @@
 function Write-HgLog {
 
+    Add-Type -AssemblyName System.Core
+
     Set-Variable CanvasEmptyCharacter -Value ([char] '·') -Option Constant
     Set-Variable CanvasHeadCharacter -Value ([char] 0x25CF) -Option Constant
 
-    function GetCommits([System.Nullable``1[[System.Int32]]] $Count) {
+    function GetCommits([System.Nullable[[int]]] $Count) {
 
         function ParseRevisionNumber([string] $RevisionNumberChangesetIdPair) {
             return [int] $RevisionNumberChangesetIdPair.Split(':')[0]
@@ -209,7 +211,7 @@ function Write-HgLog {
 
     function GetBottomEntriesForCurrentIteration([PSObject] $NextCommit, [PSObject[]] $TopEntries) {
 
-        $bottomEntries = @()
+        $bottomRevisions = New-Object System.Collections.Generic.HashSet[int]
         $wasCommitAddedToEntries = $false
 
         foreach ($topEntry in $TopEntries) {
@@ -218,12 +220,12 @@ function Write-HgLog {
 
             if (-not $isTopEntryConnectedToCommit) {
 
-                $bottomEntries += New-Object PSObject -Property @{ Id = $topEntry.Id; Position = $null; IsHead = $false }
+                $bottomRevisions.Add($topEntry.Id) > $null
                 
             } else {
 
                 if (-not $wasCommitAddedToEntries) {
-                    $bottomEntries += New-Object PSObject -Property @{ Id = $NextCommit.Revision; Position = $null; IsHead = $false }
+                    $bottomRevisions.Add($NextCommit.Revision) > $null
                     $wasCommitAddedToEntries = $true
                 }
 
@@ -232,8 +234,10 @@ function Write-HgLog {
         }
 
         if (-not $wasCommitAddedToEntries) {
-            $bottomEntries += New-Object PSObject -Property @{ Id = $NextCommit.Revision; Position = $null; IsHead = $false }
+            $bottomRevisions.Add($NextCommit.Revision) > $null
         }
+
+        $bottomEntries = [PSObject[]] ($bottomRevisions | %{ New-Object PSObject -Property @{ Id = $_; Position = $null; IsHead = $false } })
 
         for ([int] $bottomEntryIndex = 0; $bottomEntryIndex -lt $bottomEntries.Count; $bottomEntryIndex++) {
             $bottomEntries[$bottomEntryIndex].Position = ($bottomEntryIndex + 1) * 4
@@ -245,8 +249,7 @@ function Write-HgLog {
 
     function WriteCommitsDag([PSObject[]] $Commits) {
 
-        $topEntries = @()
-        $bottomEntries = GetBottomEntriesForCurrentIteration $Commits[0] $topEntries
+        $bottomEntries = GetBottomEntriesForCurrentIteration -NextCommit $Commits[0] -TopEntries @()
 
         for ([int] $commitIndex = 0; $commitIndex -lt $Commits.Count; $commitIndex++) {
 
