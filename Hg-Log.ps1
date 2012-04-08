@@ -1,6 +1,7 @@
 function Write-HgLog {
 
     Set-Variable CanvasEmptyCharacter -Value ([char] '·') -Option Constant
+    Set-Variable CanvasHeadCharacter -Value ([char] 0x25CF) -Option Constant
 
     function GetCommits([System.Nullable``1[[System.Int32]]] $Count) {
 
@@ -113,7 +114,7 @@ function Write-HgLog {
         return $Canvas
     }
 
-    function DrawLine([char[][]] $Canvas, [double] $Start, [double] $Finish) {
+    function DrawLine([char[][]] $Canvas, [double] $Start, [double] $Finish, [bool] $ShouldStartWithHead) {
 
         # adopting coords to array indexes which start from zero
         $Start--
@@ -127,13 +128,18 @@ function Write-HgLog {
 
             if ($isLastRow) {
 
-                $char = '|'
+                $Canvas = DrawPixel $Canvas $row $cell '|'
 
             } else {
 
+                $isFirstRow = $row -eq 0
+                $isHead = $isFirstRow -and $ShouldStartWithHead
+
                 $nextCell = CalculateLineCellForRow $Start $Finish $Canvas.Count ($row + 1)
 
-                if ($cell -lt $nextCell) {
+                if ($isHead) {
+                    $char = $CanvasHeadCharacter
+                } elseif ($cell -lt $nextCell) {
                     $char = '\'
                 } elseif ($cell -gt $nextCell) {
                     $char = '/'
@@ -141,15 +147,14 @@ function Write-HgLog {
                     $char = '|'
                 }
 
-            }
+                $Canvas = DrawPixel $Canvas $row $cell $char
 
-            $Canvas = DrawPixel $Canvas $row $cell $char
-
-            if (-not $isLastRow) {
                 for ($connectingCell = [Math]::Min($cell, $nextCell) + 1; $connectingCell -lt [Math]::Max($cell, $nextCell); $connectingCell++) {
                     $Canvas = DrawPixel $Canvas $row $connectingCell '_'
                 }
+
             }
+
         }
 
         return $Canvas
@@ -163,7 +168,7 @@ function Write-HgLog {
         foreach ($topEntry in $TopEntries) {
 
             foreach ($bottomEntry in ($BottomEntries | where { $_.Id -eq $topEntry.Id })) {
-                $canvas = DrawLine $canvas -Start $topEntry.Position -Finish $bottomEntry.Position
+                $canvas = DrawLine $canvas -Start $topEntry.Position -Finish $bottomEntry.Position -ShouldStartWithHead $topEntry.IsHead
             }
 
             # TODO foreachelse $canvas = DrawHead $canvas $topEntry.Position
@@ -185,12 +190,12 @@ function Write-HgLog {
 
             if (-not $shouldTopEntryPointToCommit) {
 
-                $bottomEntries += New-Object PSObject -Property @{ Id = $topEntry.Id; Position = $null }
+                $bottomEntries += New-Object PSObject -Property @{ Id = $topEntry.Id; Position = $null; IsHead = $false }
                 
             } else {
 
                 if (-not $wasCommitAddedToEntries) {
-                    $bottomEntries += New-Object PSObject -Property @{ Id = $Commit.Revision; Position = $null }
+                    $bottomEntries += New-Object PSObject -Property @{ Id = $Commit.Revision; Position = $null; IsHead = $false }
                     $wasCommitAddedToEntries = $true
                 }
 
@@ -199,7 +204,7 @@ function Write-HgLog {
         }
 
         if (-not $wasCommitAddedToEntries) {
-            $bottomEntries += New-Object PSObject -Property @{ Id = $Commit.Revision; Position = $null }
+            $bottomEntries += New-Object PSObject -Property @{ Id = $Commit.Revision; Position = $null; IsHead = $false }
         }
 
         for ([int] $bottomEntryIndex = 0; $bottomEntryIndex -lt $bottomEntries.Count; $bottomEntryIndex++) {
@@ -220,16 +225,16 @@ function Write-HgLog {
 
             if (-not $isCommitEntry) {
 
-                $nextTopEntries += $bottomEntry
+                $nextTopEntries += New-Object PSObject -Property @{ Id = $bottomEntry.Id; Position = $bottomEntry.Position; IsHead = $false }
 
             } else {
 
                 if ($Commit.ParentRevisionA -ne $null) {
-                    $nextTopEntries += New-Object PSObject -Property @{ Id = $Commit.ParentRevisionA; Position = $bottomEntry.Position }
+                    $nextTopEntries += New-Object PSObject -Property @{ Id = $Commit.ParentRevisionA; Position = $bottomEntry.Position; IsHead = $true }
                 }
 
                 if ($Commit.ParentRevisionB -ne $null) {
-                    $nextTopEntries += New-Object PSObject -Property @{ Id = $Commit.ParentRevisionB; Position = $bottomEntry.Position }
+                    $nextTopEntries += New-Object PSObject -Property @{ Id = $Commit.ParentRevisionB; Position = $bottomEntry.Position; IsHead = $true }
                 }
 
             }
