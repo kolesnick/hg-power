@@ -119,7 +119,7 @@ function Write-HgLog {
         $Start--
         $Finish--
 
-        for ($row = 0; $row -lt $Canvas.Count; $row++) {
+        for ([int] $row = 0; $row -lt $Canvas.Count; $row++) {
 
             $cell = CalculateLineCellForRow $Start $Finish $Canvas.Count $row
 
@@ -162,13 +162,11 @@ function Write-HgLog {
 
         foreach ($topEntry in $TopEntries) {
 
-            $bottomEntry = $BottomEntries | where { $_.Id -eq $topEntry.Id }
-
-            if ($bottomEntry -ne $null) {
+            foreach ($bottomEntry in ($BottomEntries | where { $_.Id -eq $topEntry.Id })) {
                 $canvas = DrawLine $canvas -Start $topEntry.Position -Finish $bottomEntry.Position
-            } else {
-                $canvas = DrawHead $canvas $topEntry.Position # TODO
             }
+
+            # TODO foreachelse $canvas = DrawHead $canvas $topEntry.Position
 
         }
 
@@ -176,26 +174,98 @@ function Write-HgLog {
 
     }
 
+    function GetBottomEntriesForCurrentIteration([PSObject] $Commit, [PSObject[]] $TopEntries) {
+
+        $bottomEntries = @()
+        $wasCommitAddedToEntries = $false
+
+        foreach ($topEntry in $TopEntries) {
+
+            $shouldTopEntryPointToCommit = $topEntry.Id -eq $Commit.Revision
+
+            if (-not $shouldTopEntryPointToCommit) {
+
+                $bottomEntries += New-Object PSObject -Property @{ Id = $topEntry.Id; Position = $null }
+                
+            } else {
+
+                if (-not $wasCommitAddedToEntries) {
+                    $bottomEntries += New-Object PSObject -Property @{ Id = $Commit.Revision; Position = $null }
+                    $wasCommitAddedToEntries = $true
+                }
+
+            }
+
+        }
+
+        if (-not $wasCommitAddedToEntries) {
+            $bottomEntries += New-Object PSObject -Property @{ Id = $Commit.Revision; Position = $null }
+        }
+
+        for ([int] $bottomEntryIndex = 0; $bottomEntryIndex -lt $bottomEntries.Count; $bottomEntryIndex++) {
+            $bottomEntries[$bottomEntryIndex].Position = ($bottomEntryIndex + 1) * 4
+        }
+
+        return $bottomEntries
+
+    }
+
+    function GetTopEntriesForNextIteration([PSObject] $Commit, [PSObject[]] $BottomEntries) {
+
+        $nextTopEntries = @()
+
+        foreach ($bottomEntry in $BottomEntries) {
+    
+            $isCommitEntry = $bottomEntry.Id -eq $Commit.Revision
+
+            if (-not $isCommitEntry) {
+
+                $nextTopEntries += $bottomEntry
+
+            } else {
+
+                if ($Commit.ParentRevisionA -ne $null) {
+                    $nextTopEntries += New-Object PSObject -Property @{ Id = $Commit.ParentRevisionA; Position = $bottomEntry.Position }
+                }
+
+                if ($Commit.ParentRevisionB -ne $null) {
+                    $nextTopEntries += New-Object PSObject -Property @{ Id = $Commit.ParentRevisionB; Position = $bottomEntry.Position }
+                }
+
+            }
+
+        }
+        
+        return $nextTopEntries
+
+    }
+
+    function WriteCommitsDag([PSObject[]] $Commits) {
+
+        $topEntries = @()
+
+        foreach ($commit in $Commits) {
+
+            $bottomEntries = GetBottomEntriesForCurrentIteration $commit $topEntries
+
+            RenderPath `
+                -TopEntries $topEntries `
+                -BottomEntries $bottomEntries `
+                -Width 30 `
+                -MinHeight 5 `
+                | CharArrayToString `
+                | Write-Host `
+
+            $topEntries = GetTopEntriesForNextIteration $commit $bottomEntries
+
+        }
+
+    }
+
     # test code below (should be replaced with real output)
 
-    GetCommits 32
-
-    RenderPath `
-        -TopEntries @( `
-            New-Object PSObject -Property @{ Id = 'A'; Position = 2 }; `
-            New-Object PSObject -Property @{ Id = 'A'; Position = 9 }; `
-            New-Object PSObject -Property @{ Id = 'B'; Position = 10.5 }; `
-            New-Object PSObject -Property @{ Id = 'C'; Position = 19 }; `
-        ) `
-        -BottomEntries @( `
-            New-Object PSObject -Property @{ Id = 'A'; Position = 6 }; `
-            New-Object PSObject -Property @{ Id = 'B'; Position = 19 }; `
-            New-Object PSObject -Property @{ Id = 'C'; Position = 10.5 }; `
-        ) `
-        -Width 20 `
-        -MinHeight 5 `
-        | CharArrayToString `
-        | Write-Host `
+    $commits = GetCommits 32
+    WriteCommitsDag $commits
 
 }
 
