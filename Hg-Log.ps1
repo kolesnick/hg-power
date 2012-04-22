@@ -272,15 +272,35 @@ function Write-HgLog {
         return [Guid]::NewGuid().ToString()
     }
 
+    function IsExpectedPointOnRay([PSObject] $Commit, [PSObject] $Ray) {
+        return $Ray.LastCommit.ParentRevisionB -eq $null -and $Ray.LastCommit.ParentRevisionA -eq $Commit.Revision
+    }
+
     function UpdateRays([PSObject[]] $Rays, [PSObject] $NewCommit) {
-        return @()
+
+        $resultRays = @()
+
+        Write-Host $NewCommit.Revision
+
+        foreach ($ray in $Rays) {
+            if (IsExpectedPointOnRay -Commit $NewCommit -Ray $ray) {
+                $resultRays += New-Object PSObject -Property @{ `
+                    Id = $ray.Id; `
+                    Position = $ray.Position; `
+                    IsHead = $true; `
+                    LastCommit = $NewCommit `
+                }
+            }
+        }
+
+        return $resultRays
     }
 
     function DrawRays([PSObject[]] $TopRays, [PSObject[]] $BottomRays, [int] $CanvasWidth) {
         Write-Host 'Top Rays (', $TopRays.Count, ')'
-        $TopRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ' ' + $_.IsHead } | Write-Host
+        $TopRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ':' + $_.LastCommit.ParentRevisionA + ':' + $_.LastCommit.ParentRevisionB + ' ' + $_.IsHead } | Write-Host
         Write-Host 'Bottom Rays (', $BottomRays.Count, ')'
-        $BottomRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ' ' + $_.IsHead } | Write-Host
+        $BottomRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ':' + $_.LastCommit.ParentRevisionA + ':' + $_.LastCommit.ParentRevisionB + ' ' + $_.IsHead } | Write-Host
         Write-Host "Canvas Width: $CanvasWidth"
     }
 
@@ -296,7 +316,7 @@ function Write-HgLog {
             LastCommit = $firstCommit `
         })
 
-        for ([int] $commitIndex = 0; $commitIndex -lt $Commits.Count; $commitIndex++) {
+        for ([int] $commitIndex = 0; $commitIndex -lt $Commits.Count - 1; $commitIndex++) {
             $currentCommit = $Commits[$commitIndex]
             $nextCommit = $Commits[$commitIndex+1]
  
@@ -311,7 +331,7 @@ function Write-HgLog {
 
     # test code below (should be replaced with real output)
 
-    $commits = GetCommits 1
+    $commits = GetCommits 2 # last commit is not printed out
     WriteCenteredCommitsDag $commits
 
 }
