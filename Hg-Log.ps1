@@ -5,6 +5,8 @@ function Write-HgLog {
     Set-Variable CanvasEmptyCharacter -Value ([char] '·') -Option Constant
     Set-Variable CanvasHeadCharacter -Value ([char] 0x25CF) -Option Constant
 
+    Set-Variable CenteredDagRaySplitShift -Value 2 -Option Constant
+
     function GetCommits([System.Nullable[[int]]] $Count) {
 
         function ParseRevisionNumber([string] $RevisionNumberChangesetIdPair) {
@@ -272,8 +274,35 @@ function Write-HgLog {
         return [Guid]::NewGuid().ToString()
     }
 
-    function IsExpectedPointOnRay([PSObject] $Commit, [PSObject] $Ray) {
-        return $Ray.LastCommit.ParentRevisionB -eq $null -and $Ray.LastCommit.ParentRevisionA -eq $Commit.Revision
+    function HasSingleParent([PSObject] $Commit) {
+         return $Commit.ParentRevisionB -eq $null
+    }
+
+    function GetExpectedRayPointRevision([PSObject] $Commit) {
+        if (HasSingleParent $Commit) {
+            return $Commit.ParentRevisionA
+        } else {
+            return $null
+        }
+    }
+
+    function IsExpectedPointOnRay([PSObject] $Ray, [PSObject] $Commit) {
+        return $Ray.ExpectedPointRevision -eq $Commit.Revision
+    }
+
+    function ShouldRayBeSplitted([PSObject] $Ray) {
+        return $Ray.IsHead -and $Ray.LastCommit.ParentRevisionB -ne $null
+    }
+
+    function PutCommitOnRayIfExpected([PSObject] $Ray, [PSObject] $Commit) {
+        
+        if (IsExpectedPointOnRay -Ray $Ray -Commit $Commit) {
+            $Ray.IsHead = $true
+            $Ray.ExpectedPointRevision = GetExpectedRayPointRevision $Commit
+            $Ray.LastCommit = $Commit
+        }
+
+        return $Ray
     }
 
     function UpdateRays([PSObject[]] $Rays, [PSObject] $NewCommit) {
@@ -281,29 +310,65 @@ function Write-HgLog {
         $resultRays = @()
 
         foreach ($ray in $Rays) {
-            if (IsExpectedPointOnRay -Commit $NewCommit -Ray $ray) {
-                $resultRays += New-Object PSObject -Property @{ `
-                    Id = $ray.Id; `
-                    Position = $ray.Position; `
-                    IsHead = $true; `
-                    LastCommit = $NewCommit `
+
+            if (ShouldRayBeSplitted $ray) {
+                
+                $leftRay = New-Object PSObject -Property @{ `
+                    Id = GenerateNewRayId; `
+                    ParentId = $ray.Id; `
+                    Position = $ray.Position - $CenteredDagRaySplitShift; `
+                    IsHead = $false; `
+                    ExpectedPointRevision = $ray.LastCommit.ParentRevisionA; `
+                    LastCommit = $null `
                 }
+
+                $rightRay = New-Object PSObject -Property @{ `
+                    Id = GenerateNewRayId; `
+                    ParentId = $ray.Id; `
+                    Position = $ray.Position + $CenteredDagRaySplitShift; `
+                    IsHead = $false; `
+                    ExpectedPointRevision = $ray.LastCommit.ParentRevisionB; `
+                    LastCommit = $null `
+                }
+
+                $leftRay = PutCommitOnRayIfExpected -Ray $leftRay -Commit $NewCommit
+                $rightRay = PutCommitOnRayIfExpected -Ray $rightRay -Commit $NewCommit
+
+                $resultRays += $leftRay
+                $resultRays += $rightRay
+
+            } else {
+
+                $extendedRay = New-Object PSObject -Property @{ `
+                    Id = $ray.Id; `
+                    ParentId = $ray.ParentId; `
+                    Position = $ray.Position; `
+                    IsHead = $false; `
+                    ExpectedPointRevision = $ray.ExpectedPointRevision; `
+                    LastCommit = $ray.LastCommit `
+                }
+
+                $extendedRay = PutCommitOnRayIfExpected -Ray $extendedRay -Commit $NewCommit
+
+                $resultRays += $extendedRay
+
             }
+
         }
 
         return $resultRays
     }
 
     function GetBottomRaysCorrespondingToTopRay ([PSObject] $TopRay, [PSObject] $BottomRays) {
-        return $BottomRays | where {$_.Id -eq $TopRay.Id}
+        return $BottomRays | where {$_.Id -eq $TopRay.Id -or $_.ParentId -eq $TopRay.Id}
     }
 
     function DrawRays([PSObject[]] $TopRays, [PSObject[]] $BottomRays, [int] $CanvasWidth) {
-        Write-Host 'Top Rays (', $TopRays.Count, ')'
-        $TopRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ':' + $_.LastCommit.ParentRevisionA + ':' + $_.LastCommit.ParentRevisionB + ' ' + $_.IsHead } | Write-Host
-        Write-Host 'Bottom Rays (', $BottomRays.Count, ')'
-        $BottomRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ':' + $_.LastCommit.ParentRevisionA + ':' + $_.LastCommit.ParentRevisionB + ' ' + $_.IsHead } | Write-Host
-        Write-Host "Canvas Width: $CanvasWidth"
+        #Write-Host 'Top Rays (', $TopRays.Count, ')'
+        #$TopRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ':' + $_.LastCommit.ParentRevisionA + ':' + $_.LastCommit.ParentRevisionB + ' ' + $_.IsHead + ' ' + $_.ExpectedPointRevision } | Write-Host
+        #Write-Host 'Bottom Rays (', $BottomRays.Count, ')'
+        #$BottomRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ':' + $_.LastCommit.ParentRevisionA + ':' + $_.LastCommit.ParentRevisionB + ' ' + $_.IsHead + ' ' + $_.ExpectedPointRevision } | Write-Host
+        #Write-Host "Canvas Width: $CanvasWidth"
 
         $topEntries = @()
         $bottomEntries = @()
@@ -342,8 +407,10 @@ function Write-HgLog {
         $firstCommit = $Commits[0]
         $currentRays = @(New-Object PSObject -Property @{ `
             Id = GenerateNewRayId; `
+            ParentId = $null; `
             Position = [Math]::Round($canvasWidth / 2, [MidpointRounding]::AwayFromZero); `
             IsHead = $true; `
+            ExpectedPointRevision = GetExpectedRayPointRevision $firstCommit; `
             LastCommit = $firstCommit `
         })
 
@@ -362,7 +429,7 @@ function Write-HgLog {
 
     # test code below (should be replaced with real output)
 
-    $commits = GetCommits 2 # last commit is not printed out
+    $commits = GetCommits 6 # last commit is not printed out
     WriteCenteredCommitsDag $commits
 
 }
