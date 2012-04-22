@@ -280,8 +280,6 @@ function Write-HgLog {
 
         $resultRays = @()
 
-        Write-Host $NewCommit.Revision
-
         foreach ($ray in $Rays) {
             if (IsExpectedPointOnRay -Commit $NewCommit -Ray $ray) {
                 $resultRays += New-Object PSObject -Property @{ `
@@ -296,22 +294,55 @@ function Write-HgLog {
         return $resultRays
     }
 
+    function GetBottomRaysCorrespondingToTopRay ([PSObject] $TopRay, [PSObject] $BottomRays) {
+        return $BottomRays | where {$_.Id -eq $TopRay.Id}
+    }
+
     function DrawRays([PSObject[]] $TopRays, [PSObject[]] $BottomRays, [int] $CanvasWidth) {
         Write-Host 'Top Rays (', $TopRays.Count, ')'
         $TopRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ':' + $_.LastCommit.ParentRevisionA + ':' + $_.LastCommit.ParentRevisionB + ' ' + $_.IsHead } | Write-Host
         Write-Host 'Bottom Rays (', $BottomRays.Count, ')'
         $BottomRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ':' + $_.LastCommit.ParentRevisionA + ':' + $_.LastCommit.ParentRevisionB + ' ' + $_.IsHead } | Write-Host
         Write-Host "Canvas Width: $CanvasWidth"
+
+        $topEntries = @()
+        $bottomEntries = @()
+
+        foreach ($topRay in $TopRays) {
+            foreach ($bottomRay in GetBottomRaysCorrespondingToTopRay -TopRay $topRay -BottomRays $BottomRays) {
+
+                $topEntries += New-Object PSObject -Property @{ `
+                    Id = $topRay.Id + ':' + $bottomRay.Id; `
+                    Position = $topRay.Position; `
+                    IsHead = $topRay.IsHead
+                }
+
+                $bottomEntries += New-Object PSObject -Property @{ `
+                    Id = $topRay.Id + ':' + $bottomRay.Id; `
+                    Position = $bottomRay.Position; `
+                    IsHead = $bottomRay.IsHead
+                }
+
+            }
+        }
+
+        RenderPath `
+            -TopEntries $topEntries `
+            -BottomEntries $bottomEntries `
+            -Width $CanvasWidth `
+            -MinHeight 4 `
+            | CharArrayToString `
+            | Write-Host `
     }
 
     function WriteCenteredCommitsDag([PSObject[]] $Commits) {
 
-        $canvasWidth = 30
+        $canvasWidth = 29
         
         $firstCommit = $Commits[0]
         $currentRays = @(New-Object PSObject -Property @{ `
             Id = GenerateNewRayId; `
-            Position = [Math]::Round($canvasWidth / 2); `
+            Position = [Math]::Round($canvasWidth / 2, [MidpointRounding]::AwayFromZero); `
             IsHead = $true; `
             LastCommit = $firstCommit `
         })
