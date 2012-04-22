@@ -247,7 +247,7 @@ function Write-HgLog {
 
     }
 
-    function WriteCommitsDag([PSObject[]] $Commits) {
+    function WriteBasicCommitsDag([PSObject[]] $Commits) {
 
         $bottomEntries = GetBottomEntriesForCurrentIteration -NextCommit $Commits[0] -TopEntries @()
 
@@ -268,10 +268,51 @@ function Write-HgLog {
 
     }
 
+    function GenerateNewRayId {
+        return [Guid]::NewGuid().ToString()
+    }
+
+    function UpdateRays([PSObject[]] $Rays, [PSObject] $NewCommit) {
+        return @()
+    }
+
+    function DrawRays([PSObject[]] $TopRays, [PSObject[]] $BottomRays, [int] $CanvasWidth) {
+        Write-Host 'Top Rays (', $TopRays.Count, ')'
+        $TopRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ' ' + $_.IsHead } | Write-Host
+        Write-Host 'Bottom Rays (', $BottomRays.Count, ')'
+        $BottomRays | %{ '' + $_.Id + ' ' + $_.Position + ' ' + $_.LastCommit.Revision + ' ' + $_.IsHead } | Write-Host
+        Write-Host "Canvas Width: $CanvasWidth"
+    }
+
+    function WriteCenteredCommitsDag([PSObject[]] $Commits) {
+
+        $canvasWidth = 30
+        
+        $firstCommit = $Commits[0]
+        $currentRays = @(New-Object PSObject -Property @{ `
+            Id = GenerateNewRayId; `
+            Position = [Math]::Round($canvasWidth / 2); `
+            IsHead = $true; `
+            LastCommit = $firstCommit `
+        })
+
+        for ([int] $commitIndex = 0; $commitIndex -lt $Commits.Count; $commitIndex++) {
+            $currentCommit = $Commits[$commitIndex]
+            $nextCommit = $Commits[$commitIndex+1]
+ 
+            $bottomRays = UpdateRays -Rays $currentRays -NewCommit $nextCommit
+
+            DrawRays -Top $currentRays -Bottom $bottomRays -CanvasWidth $canvasWidth
+
+            $currentRays = $bottomRays
+        }
+    
+    }
+
     # test code below (should be replaced with real output)
 
-    $commits = GetCommits 32
-    WriteCommitsDag $commits
+    $commits = GetCommits 1
+    WriteCenteredCommitsDag $commits
 
 }
 
