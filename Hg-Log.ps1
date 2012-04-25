@@ -313,11 +313,22 @@ function Write-HgLog {
         }
     }
     
-    function DeterminePositionForNewRay([PSObject[]] $AvailableRays) {
-        return 17 + $CenteredDagRayNormalDistance
+    function DeterminePositionForNewRay([PSObject[]] $AvailableRays, [int] $CanvasWidth) {
+
+        $measuredPositions = $AvailableRays | %{ $_.Position } | Measure-Object -Minimum -Maximum
+
+        $emptyPixelsBeforeDag = $measuredPositions.Minimum - 1
+        $emptyPixelsAfterDag = $CanvasWidth - $measuredPositions.Maximum
+
+        if ($emptyPixelsBeforeDag -gt $emptyPixelsAfterDag) {
+            return $measuredPositions.Minimum - $CenteredDagRayNormalDistance
+        } else {
+            return $measuredPositions.Maximum + $CenteredDagRayNormalDistance
+        }
+
     }
 
-    function UpdateRays([PSObject[]] $Rays, [PSObject] $NewCommit) {
+    function UpdateRays([PSObject[]] $Rays, [PSObject] $NewCommit, [int] $CanvasWidth) {
 
         $resultRays = @()
 
@@ -371,7 +382,7 @@ function Write-HgLog {
         $isCommitPlacedOnSomeRay = ($resultRays | where {$_.IsHead}) -ne $null
         if (-not $isCommitPlacedOnSomeRay) {
 
-            $position = DeterminePositionForNewRay -AvailableRays $resultRays
+            $position = DeterminePositionForNewRay -AvailableRays $resultRays -CanvasWidth $CanvasWidth
 
             $newRay = New-Object PSObject -Property @{ `
                 Id = GenerateNewRayId; `
@@ -448,7 +459,7 @@ function Write-HgLog {
             $currentCommit = $Commits[$commitIndex]
             $nextCommit = $Commits[$commitIndex+1]
  
-            $bottomRays = UpdateRays -Rays $currentRays -NewCommit $nextCommit
+            $bottomRays = UpdateRays -Rays $currentRays -NewCommit $nextCommit -CanvasWidth $canvasWidth
 
             DrawRays -Top $currentRays -Bottom $bottomRays -CanvasWidth $canvasWidth
 
