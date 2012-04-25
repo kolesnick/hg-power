@@ -6,6 +6,7 @@ function Write-HgLog {
     Set-Variable CanvasHeadCharacter -Value ([char] 0x25CF) -Option Constant
 
     Set-Variable CenteredDagRaySplitShift -Value 2 -Option Constant
+    Set-Variable CenteredDagRayNormalDistance -Value (2 * $CenteredDagRaySplitShift) -Option Constant
 
     function GetCommits([System.Nullable[[int]]] $Count) {
 
@@ -294,15 +295,26 @@ function Write-HgLog {
         return $Ray.IsHead -and $Ray.LastCommit.ParentRevisionB -ne $null
     }
 
+    function PutCommitOnRay([PSObject] $Ray, [PSObject] $Commit) {
+
+        $Ray.IsHead = $true
+        $Ray.ExpectedPointRevision = GetExpectedRayPointRevision $Commit
+        $Ray.LastCommit = $Commit
+
+        return $Ray
+    }
+
     function PutCommitOnRayIfExpected([PSObject] $Ray, [PSObject] $Commit) {
         
         if (IsExpectedPointOnRay -Ray $Ray -Commit $Commit) {
-            $Ray.IsHead = $true
-            $Ray.ExpectedPointRevision = GetExpectedRayPointRevision $Commit
-            $Ray.LastCommit = $Commit
+            return PutCommitOnRay -Ray $Ray -Commit $Commit
+        } else {
+            return $Ray
         }
-
-        return $Ray
+    }
+    
+    function DeterminePositionForNewRay([PSObject[]] $AvailableRays) {
+        return 17 + $CenteredDagRayNormalDistance
     }
 
     function UpdateRays([PSObject[]] $Rays, [PSObject] $NewCommit) {
@@ -353,6 +365,24 @@ function Write-HgLog {
                 $resultRays += $extendedRay
 
             }
+
+        }
+
+        $isCommitPlacedOnSomeRay = ($resultRays | where {$_.IsHead}) -ne $null
+        if (-not $isCommitPlacedOnSomeRay) {
+
+            $position = DeterminePositionForNewRay -AvailableRays $resultRays
+
+            $newRay = New-Object PSObject -Property @{ `
+                Id = GenerateNewRayId; `
+                ParentId = $null; `
+                Position = $position; `
+                IsHead = $true; `
+                ExpectedPointRevision = GetExpectedRayPointRevision $NewCommit; `
+                LastCommit = $NewCommit `
+            }
+
+            $resultRays += $newRay
 
         }
 
