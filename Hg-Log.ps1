@@ -317,6 +317,10 @@ function Write-HgLog {
 
         $measuredPositions = $AvailableRays | %{ $_.Position } | Measure-Object -Minimum -Maximum
 
+        if ($measuredPositions.Count -eq 0) {
+            return [Math]::Round($CanvasWidth / 2, [MidpointRounding]::AwayFromZero);
+        }
+
         $emptyPixelsBeforeDag = $measuredPositions.Minimum - 1
         $emptyPixelsAfterDag = $CanvasWidth - $measuredPositions.Maximum
 
@@ -382,12 +386,10 @@ function Write-HgLog {
         $isCommitPlacedOnSomeRay = ($resultRays | where {$_.IsHead}) -ne $null
         if (-not $isCommitPlacedOnSomeRay) {
 
-            $position = DeterminePositionForNewRay -AvailableRays $resultRays -CanvasWidth $CanvasWidth
-
             $newRay = New-Object PSObject -Property @{ `
                 Id = GenerateNewRayId; `
                 ParentId = $null; `
-                Position = $position; `
+                Position = DeterminePositionForNewRay -AvailableRays $resultRays -CanvasWidth $CanvasWidth; `
                 IsHead = $true; `
                 ExpectedPointRevision = GetExpectedRayPointRevision $NewCommit; `
                 LastCommit = $NewCommit `
@@ -449,7 +451,7 @@ function Write-HgLog {
         $currentRays = @(New-Object PSObject -Property @{ `
             Id = GenerateNewRayId; `
             ParentId = $null; `
-            Position = [Math]::Round($canvasWidth / 2, [MidpointRounding]::AwayFromZero); `
+            Position = DeterminePositionForNewRay -AvailableRays @() -CanvasWidth $canvasWidth; `
             IsHead = $true; `
             ExpectedPointRevision = GetExpectedRayPointRevision $firstCommit; `
             LastCommit = $firstCommit `
