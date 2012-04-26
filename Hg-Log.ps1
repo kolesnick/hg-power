@@ -343,6 +343,17 @@ function Write-HgLog {
         }
     }
 
+    function CreateExtendedRay([PSObject] $InitialRay) {
+        return New-Object PSObject -Property @{ `
+            Id = $InitialRay.Id; `
+            ParentId = $InitialRay.ParentId; `
+            Position = $InitialRay.Position; `
+            IsHead = $false; `
+            ExpectedPointRevision = $InitialRay.ExpectedPointRevision; `
+            LastCommit = $InitialRay.LastCommit `
+        }
+    }
+
     function UpdateRays([PSObject[]] $Rays, [PSObject] $NewCommit, [int] $CanvasWidth) {
 
         $resultRays = @()
@@ -377,14 +388,7 @@ function Write-HgLog {
 
             } else {
 
-                $extendedRay = New-Object PSObject -Property @{ `
-                    Id = $ray.Id; `
-                    ParentId = $ray.ParentId; `
-                    Position = $ray.Position; `
-                    IsHead = $false; `
-                    ExpectedPointRevision = $ray.ExpectedPointRevision; `
-                    LastCommit = $ray.LastCommit `
-                }
+                $extendedRay = CreateExtendedRay -InitialRay $ray
 
                 $extendedRay = PutCommitOnRayIfExpected -Ray $extendedRay -Commit $NewCommit
 
