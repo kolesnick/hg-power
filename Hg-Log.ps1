@@ -332,6 +332,17 @@ function Write-HgLog {
 
     }
 
+    function CreateNewRay([PSObject] $HeadCommit, [PSObject[]] $AvailableRays, [int] $CanvasWidth) {
+        return New-Object PSObject -Property @{ `
+            Id = GenerateNewRayId; `
+            ParentId = $null; `
+            Position = DeterminePositionForNewRay -AvailableRays $AvailableRays -CanvasWidth $CanvasWidth; `
+            IsHead = $true; `
+            ExpectedPointRevision = GetExpectedRayPointRevision $HeadCommit; `
+            LastCommit = $HeadCommit `
+        }
+    }
+
     function UpdateRays([PSObject[]] $Rays, [PSObject] $NewCommit, [int] $CanvasWidth) {
 
         $resultRays = @()
@@ -386,14 +397,7 @@ function Write-HgLog {
         $isCommitPlacedOnSomeRay = ($resultRays | where {$_.IsHead}) -ne $null
         if (-not $isCommitPlacedOnSomeRay) {
 
-            $newRay = New-Object PSObject -Property @{ `
-                Id = GenerateNewRayId; `
-                ParentId = $null; `
-                Position = DeterminePositionForNewRay -AvailableRays $resultRays -CanvasWidth $CanvasWidth; `
-                IsHead = $true; `
-                ExpectedPointRevision = GetExpectedRayPointRevision $NewCommit; `
-                LastCommit = $NewCommit `
-            }
+            $newRay = CreateNewRay -HeadCommit $NewCommit -AvailableRays $resultRays -CanvasWidth $CanvasWidth
 
             $resultRays += $newRay
 
@@ -448,14 +452,7 @@ function Write-HgLog {
         $canvasWidth = 29
         
         $firstCommit = $Commits[0]
-        $currentRays = @(New-Object PSObject -Property @{ `
-            Id = GenerateNewRayId; `
-            ParentId = $null; `
-            Position = DeterminePositionForNewRay -AvailableRays @() -CanvasWidth $canvasWidth; `
-            IsHead = $true; `
-            ExpectedPointRevision = GetExpectedRayPointRevision $firstCommit; `
-            LastCommit = $firstCommit `
-        })
+        $currentRays = @(CreateNewRay -HeadCommit $firstCommit -AvailableRays @() -CanvasWidth $canvasWidth)
 
         for ([int] $commitIndex = 0; $commitIndex -lt $Commits.Count - 1; $commitIndex++) {
             $currentCommit = $Commits[$commitIndex]
